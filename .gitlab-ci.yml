@@ -1,0 +1,50 @@
+stages:
+  - build
+  - test
+  - scan
+  - deploy
+
+variables:
+  DOCKER_IMAGE: "minzo/my-ecommerce-app"
+
+# Build the application and Docker image
+build:
+  stage: build
+  script:
+    - pip install -r requirements.txt
+    - python manage.py build
+    - docker build -t $DOCKER_IMAGE .
+    - docker tag $DOCKER_IMAGE:latest $DOCKER_IMAGE:$CI_COMMIT_SHORT_SHA
+  only:
+    - master
+
+# Run unit tests
+test:
+  stage: test
+  script:
+    - pip install -r requirements.txt
+    - pytest
+  only:
+    - master
+
+# Scan the Docker image for vulnerabilities
+scan:
+  stage: scan
+  script:
+    - docker scan $DOCKER_IMAGE
+  only:
+    - master
+  allow_failure: true
+
+# Deploy (simulated locally)
+deploy:
+  stage: deploy
+  script:
+    - docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD
+    - docker push $DOCKER_IMAGE:$CI_COMMIT_SHORT_SHA
+    - docker run -d --rm --name my-app -p 8000:8000 $DOCKER_IMAGE:$CI_COMMIT_SHORT_SHA
+  only:
+    - master
+  environment:
+    name: local
+    url: http://localhost:8000
